@@ -43,7 +43,7 @@ public final class PoolBagEntry implements IConcurrentBagEntry
 
    public PoolBagEntry(final Connection connection, final HikariPool pool) {
       this.connection = connection;
-      this.lastAccess = System.currentTimeMillis();
+      this.lastAccess = System.nanoTime();
 
       final long variance = pool.configuration.getMaxLifetime() > 300_000 ? ThreadLocalRandom.current().nextLong(100_000) : 0;
       final long maxLifetime = pool.configuration.getMaxLifetime() - variance;

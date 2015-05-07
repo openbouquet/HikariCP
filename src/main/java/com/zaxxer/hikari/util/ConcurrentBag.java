@@ -25,7 +25,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.AbstractQueuedLongSynchronizer;
 
 import org.slf4j.Logger;
@@ -83,12 +82,11 @@ public class ConcurrentBag<T extends IConcurrentBagEntry> implements AutoCloseab
     * specified timeout if none are available.
     * 
     * @param timeout how long to wait before giving up, in units of unit
-    * @param timeUnit a <code>TimeUnit</code> determining how to interpret the timeout parameter
     * @return a borrowed instance from the bag or null if a timeout occurs
     * @throws InterruptedException if interrupted while waiting
     */
    @SuppressWarnings("unchecked")
-   public T borrow(long timeout, final TimeUnit timeUnit) throws InterruptedException
+   public T borrow(long timeout) throws InterruptedException
    {
       // Try the thread-local list first, if there are no blocked threads waiting already
       if (!synchronizer.hasQueuedThreads()) {
@@ -107,7 +105,6 @@ public class ConcurrentBag<T extends IConcurrentBagEntry> implements AutoCloseab
       }
 
       // Otherwise, scan the shared list ... for maximum of timeout
-      timeout = timeUnit.toNanos(timeout);
       Future<Boolean> addItemFuture = null;
       final long startScan = System.nanoTime();
       final long originTimeout = timeout;
@@ -171,7 +168,7 @@ public class ConcurrentBag<T extends IConcurrentBagEntry> implements AutoCloseab
    {
       if (closed) {
          LOGGER.info("ConcurrentBag has been closed, ignoring add()");
-         throw new IllegalStateException("ConcurrentBag has been closed, ignoring add()");
+         return;
       }
 
       sharedList.add(bagEntry);

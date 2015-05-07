@@ -22,7 +22,7 @@ import static com.zaxxer.hikari.util.IConcurrentBagEntry.STATE_IN_USE;
 import static com.zaxxer.hikari.util.IConcurrentBagEntry.STATE_NOT_IN_USE;
 import static com.zaxxer.hikari.util.IConcurrentBagEntry.STATE_REMOVED;
 import static com.zaxxer.hikari.util.UtilityElf.createThreadPoolExecutor;
-import static com.zaxxer.hikari.util.UtilityElf.elapsedTimeMs;
+import static com.zaxxer.hikari.util.UtilityElf.elapsedNanos;
 import static com.zaxxer.hikari.util.UtilityElf.getTransactionIsolation;
 import static com.zaxxer.hikari.util.UtilityElf.quietlySleep;
 
@@ -68,7 +68,7 @@ import com.zaxxer.hikari.util.IBagStateListener;
 public class HikariPool implements HikariPoolMBean, IBagStateListener
 {
    protected final Logger LOGGER = LoggerFactory.getLogger(getClass());
-   private static final long ALIVE_BYPASS_WINDOW = Long.getLong("com.zaxxer.hikari.aliveBypassWindow", 1000L);
+   private static final long ALIVE_BYPASS_WINDOW = TimeUnit.MILLISECONDS.toNanos(Long.getLong("com.zaxxer.hikari.aliveBypassWindow", 1000L));
 
    protected static final int POOL_NORMAL = 0;
    protected static final int POOL_SUSPENDED = 1;
@@ -92,6 +92,7 @@ public class HikariPool implements HikariPoolMBean, IBagStateListener
 
    protected volatile int poolState;
    protected volatile long connectionTimeout;
+   protected volatile long connectionTimeoutNanos;
    protected volatile long validationTimeout;
    
    private final LeakTask leakTask;
@@ -122,6 +123,7 @@ public class HikariPool implements HikariPoolMBean, IBagStateListener
       this.connectionBag = new ConcurrentBag<PoolBagEntry>(this);
       this.totalConnections = new AtomicInteger();
       this.connectionTimeout = config.getConnectionTimeout();
+      this.connectionTimeoutNanos = TimeUnit.MILLISECONDS.toNanos(connectionTimeout);
       this.validationTimeout = config.getValidationTimeout();
       this.lastConnectionFailure = new AtomicReference<Throwable>();
 
@@ -162,11 +164,11 @@ public class HikariPool implements HikariPoolMBean, IBagStateListener
     */
    public final Connection getConnection() throws SQLException
    {
-      return getConnection(connectionTimeout);
+      return getConnection(connectionTimeoutNanos);
    }
 
    /**
-    * Get a connection from the pool, or timeout after the specified number of milliseconds.
+    * Get a connection from the pool, or timeout after the specified number of nanoseconds.
     *
     * @param hardTimeout the maximum time to wait for a connection from the pool
     * @return a java.sql.Connection instance
@@ -176,20 +178,20 @@ public class HikariPool implements HikariPoolMBean, IBagStateListener
    {
       suspendResumeLock.acquire();
       long timeout = hardTimeout;
-      final long start = System.currentTimeMillis();
+      final long start = System.nanoTime();
       final MetricsContext metricsContext = (isRecordMetrics ? metricsTracker.recordConnectionRequest(start) : MetricsTracker.NO_CONTEXT);
 
       try {
          do {
-            final PoolBagEntry bagEntry = connectionBag.borrow(timeout, TimeUnit.MILLISECONDS);
+            final PoolBagEntry bagEntry = connectionBag.borrow(timeout);
             if (bagEntry == null) {
                break; // We timed out... break and throw exception
             }
 
-            final long now = System.currentTimeMillis();
+            final long now = System.nanoTime();
             if (bagEntry.evicted || (now - bagEntry.lastAccess > ALIVE_BYPASS_WINDOW && !isConnectionAlive(bagEntry.connection))) {
                closeConnection(bagEntry, "connection evicted or dead"); // Throw away the dead connection and try again
-               timeout = hardTimeout - elapsedTimeMs(start);
+               timeout = hardTimeout - elapsedNanos(start);
             }
             else {
                metricsContext.setConnectionLastOpen(bagEntry, now);
@@ -197,7 +199,7 @@ public class HikariPool implements HikariPoolMBean, IBagStateListener
                return ProxyFactory.getProxyConnection(this, bagEntry, leakTask.start(bagEntry), now);
             }
          }
-         while (timeout > 0L);
+         while (timeout > 1000L);
       }
       catch (InterruptedException e) {
          throw new SQLException("Interrupted during connection acquisition", e);
@@ -207,7 +209,7 @@ public class HikariPool implements HikariPoolMBean, IBagStateListener
       }
 
       logPoolState("Timeout failure ");
-      throw new SQLTimeoutException(String.format("Timeout after %dms of waiting for a connection.", elapsedTimeMs(start)), lastConnectionFailure.getAndSet(null));
+      throw new SQLTimeoutException(String.format("Timeout after %dms of waiting for a connection.", TimeUnit.NANOSECONDS.toMillis(elapsedNanos(start))), lastConnectionFailure.getAndSet(null));
    }
 
    /**
@@ -253,12 +255,12 @@ public class HikariPool implements HikariPoolMBean, IBagStateListener
          final ExecutorService assassinExecutor = createThreadPoolExecutor(configuration.getMaximumPoolSize(), "HikariCP connection assassin",
                                                                            configuration.getThreadFactory(), new ThreadPoolExecutor.CallerRunsPolicy());
          try {
-            final long start = System.currentTimeMillis();
+            final long startNano = System.nanoTime();
             do {
                softEvictConnections();
                abortActiveConnections(assassinExecutor);
             }
-            while (getTotalConnections() > 0 && elapsedTimeMs(start) < TimeUnit.SECONDS.toMillis(5));
+            while (getTotalConnections() > 0 && elapsedNanos(startNano) < TimeUnit.SECONDS.toNanos(5));
          } finally {
             assassinExecutor.shutdown();
             assassinExecutor.awaitTermination(5L, TimeUnit.SECONDS);
@@ -641,9 +643,10 @@ public class HikariPool implements HikariPoolMBean, IBagStateListener
          logPoolState("Before cleanup ");
 
          connectionTimeout = configuration.getConnectionTimeout(); // refresh member in case it changed
+         connectionTimeoutNanos = TimeUnit.MILLISECONDS.toNanos(configuration.getConnectionTimeout()); // refresh member in case it changed
 
-         final long now = System.currentTimeMillis();
-         final long idleTimeout = configuration.getIdleTimeout();
+         final long now = System.nanoTime();
+         final long idleTimeout = TimeUnit.MILLISECONDS.toNanos(configuration.getIdleTimeout());
 
          for (PoolBagEntry bagEntry : connectionBag.values(STATE_NOT_IN_USE)) {
             if (connectionBag.reserve(bagEntry)) {

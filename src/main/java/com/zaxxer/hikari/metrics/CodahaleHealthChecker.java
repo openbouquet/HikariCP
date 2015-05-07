@@ -88,12 +88,12 @@ public final class CodahaleHealthChecker
    private static class ConnectivityHealthCheck extends HealthCheck
    {
       private final HikariPool pool;
-      private final long checkTimeoutMs;
+      private final long checkTimeoutNano;
 
       ConnectivityHealthCheck(final HikariPool pool, final long checkTimeoutMs)
       {
          this.pool = pool;
-         this.checkTimeoutMs = (checkTimeoutMs > 0 && checkTimeoutMs != Integer.MAX_VALUE ? checkTimeoutMs : TimeUnit.SECONDS.toMillis(10));
+         this.checkTimeoutNano = (checkTimeoutMs > 0 && checkTimeoutMs != Integer.MAX_VALUE ? TimeUnit.MILLISECONDS.toNanos(checkTimeoutMs) : TimeUnit.SECONDS.toNanos(10));
       }
 
       /** {@inheritDoc} */
@@ -102,7 +102,7 @@ public final class CodahaleHealthChecker
       {
          Connection connection = null;
          try {
-            connection = pool.getConnection(checkTimeoutMs);
+            connection = pool.getConnection(checkTimeoutNano);
             return Result.healthy();
          }
          catch (SQLException e) {

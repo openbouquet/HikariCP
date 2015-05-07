@@ -43,6 +43,17 @@ public final class UtilityElf
    }
 
    /**
+    * Get the elapsed time in nanoseconds between the specified start time and now.
+    *
+    * @param startNanos the start time
+    * @return the elapsed nanoseconds
+    */
+   public static long elapsedNanos(final long startNanos)
+   {
+      return System.nanoTime() - startNanos;
+   }
+
+   /**
     * Sleep and transform an InterruptedException into a RuntimeException.
     *
     * @param millis the number of milliseconds to sleep

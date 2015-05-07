@@ -78,7 +78,7 @@ public class TestConcurrentBag
 
       PoolBagEntry inuse = new PoolBagEntry(null, pool);
       bag.add(inuse);
-      bag.borrow(2L, TimeUnit.SECONDS); // in use
+      bag.borrow(TimeUnit.SECONDS.toNanos(2)); // in use
       
       PoolBagEntry notinuse = new PoolBagEntry(null, pool);
       bag.add(notinuse); // not in use
@@ -106,7 +106,7 @@ public class TestConcurrentBag
       try {
          PoolBagEntry bagEntry = new PoolBagEntry(null, pool);
          bag.add(bagEntry);
-         Assert.assertNotEquals(bagEntry, bag.borrow(100, TimeUnit.MILLISECONDS));
+         Assert.assertNotEquals(bagEntry, bag.borrow(TimeUnit.MILLISECONDS.toNanos(100)));
       }
       catch (IllegalStateException e) {
          Assert.assertTrue(new String(baos.toByteArray()).contains("ignoring add()"));
