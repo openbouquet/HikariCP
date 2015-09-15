@@ -62,7 +62,7 @@ public class TestConcurrentBag
       ds.close();
    }
 
-   @Test
+/*   @Test
    public void testConcurrentBag() throws Exception
    {
       ConcurrentBag<PoolEntry> bag = new ConcurrentBag<PoolEntry>(new IBagStateListener() {
@@ -146,4 +146,5 @@ public class TestConcurrentBag
 
       Assert.assertNotNull(notinuse.toString());
    }
+*/
 }

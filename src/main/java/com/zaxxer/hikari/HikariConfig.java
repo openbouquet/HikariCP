@@ -84,6 +84,7 @@ public class HikariConfig implements HikariConfigMXBean
    private boolean isIsolateInternalQueries;
    private boolean isRegisterMbeans;
    private boolean isAllowPoolSuspension;
+   private boolean useSystemClassloader;
    private DataSource dataSource;
    private Properties dataSourceProperties;
    private ThreadFactory threadFactory;
@@ -106,6 +107,7 @@ public class HikariConfig implements HikariConfigMXBean
       idleTimeout = IDLE_TIMEOUT;
       isAutoCommit = true;
       isInitializationFailFast = true;
+      useSystemClassloader = false;
       minIdle = -1;
       maxPoolSize = 10;
       maxLifetime = MAX_LIFETIME;
@@ -321,9 +323,16 @@ public class HikariConfig implements HikariConfigMXBean
    public void setDriverClassName(String driverClassName)
    {
       try {
-         Class<?> driverClass = this.getClass().getClassLoader().loadClass(driverClassName);
-         driverClass.newInstance();
-         this.driverClassName = driverClassName;
+	 // Allow Use System classloader
+	 if(useSystemClassloader){
+		Class<?> driverClass = ClassLoader.getSystemClassLoader().loadClass(driverClassName);
+        	driverClass.newInstance();
+         	this.driverClassName = driverClassName;
+	 }else{
+		Class<?> driverClass = this.getClass().getClassLoader().loadClass(driverClassName);
+		driverClass.newInstance();
+		this.driverClassName = driverClassName;
+         }
       }
       catch (Exception e) {
          throw new RuntimeException("Could not load class of driverClassName " + driverClassName, e);
