@@ -16,9 +16,9 @@
    </organization>
 
    <scm>
-      <connection>scm:git:git@github.com:brettwooldridge/HikariCP.git</connection>
-      <developerConnection>scm:git:git@github.com:brettwooldridge/HikariCP.git</developerConnection>
-      <url>git@github.com:brettwooldridge/HikariCP.git</url>
+      <connection>scm:git:git@github.com:lrabiet-squid/HikariCP.git</connection>
+      <developerConnection>scm:git:git@github.com:lrabiet-squid/HikariCP.git</developerConnection>
+      <url>git@github.com:lrabiet-squid/HikariCP.git</url>
       <tag>HEAD</tag>
    </scm>
 
@@ -34,6 +34,10 @@
       <developer>
          <name>Brett Wooldridge</name>
          <email>brett.wooldridge@gmail.com</email>
+      </developer>
+      <developer>
+         <name>Louis Rabiet</name>
+         <email>louis.rabiet@squidsolutions.com</email>
       </developer>
    </developers>
 
@@ -282,6 +286,7 @@
                </configuration>
             </plugin>
 
+            <!--  
             <plugin>
                <groupId>org.apache.maven.plugins</groupId>
                <artifactId>maven-release-plugin</artifactId>
@@ -290,8 +295,19 @@
                   <autoVersionSubmodules>true</autoVersionSubmodules>
                   <tagNameFormat>HikariCP-@{project.version}</tagNameFormat>
                </configuration>
-            </plugin>
+            </plugin> 
+            -->
 
+
+			<plugin>
+	            <groupId>external.atlassian.jgitflow</groupId>
+	            <artifactId>jgitflow-maven-plugin</artifactId>
+	            <version>1.0-m5.1</version>
+	            <configuration>
+	            	<autoVersionSubmodules>true</autoVersionSubmodules>
+	            </configuration>
+            </plugin>
+            
             <plugin>
                <groupId>org.apache.maven.plugins</groupId>
                <artifactId>maven-surefire-plugin</artifactId>

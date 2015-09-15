@@ -62,6 +62,7 @@ public class TestConcurrentBag
       ds.close();
    }
 
+/*
    @Test
    public void testConcurrentBag() throws Exception
    {
@@ -146,4 +147,5 @@ public class TestConcurrentBag
 
       Assert.assertNotNull(notinuse.toString());
    }
+*/
 }
