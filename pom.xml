@@ -16,9 +16,9 @@
    </organization>
 
    <scm>
-      <connection>scm:git:git@github.com:lrabiet-squid/HikariCP.git</connection>
-      <developerConnection>scm:git:git@github.com:lrabiet-squid/HikariCP.git</developerConnection>
-      <url>git@github.com:lrabiet-squid/HikariCP.git</url>
+      <connection>scm:git:git@github.com:squidsolutions/HikariCP.git</connection>
+      <developerConnection>scm:git:git@github.com:squidsolutions/HikariCP.git</developerConnection>
+      <url>git@github.com:squidsolutions/HikariCP.git</url>
       <tag>HEAD</tag>
    </scm>
 
