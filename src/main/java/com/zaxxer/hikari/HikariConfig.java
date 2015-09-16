@@ -85,6 +85,8 @@ public class HikariConfig implements HikariConfigMXBean
    private boolean isIsolateInternalQueries;
    private boolean isRegisterMbeans;
    private boolean isAllowPoolSuspension;
+   private boolean useCustomClassloader;
+   private ClassLoader customClassloader;
    private DataSource dataSource;
    private Properties dataSourceProperties;
    private ThreadFactory threadFactory;
@@ -319,17 +321,33 @@ public class HikariConfig implements HikariConfigMXBean
       return driverClassName;
    }
 
-   public void setDriverClassName(String driverClassName)
-   {
-      try {
-         Class<?> driverClass = this.getClass().getClassLoader().loadClass(driverClassName);
-         driverClass.newInstance();
-         this.driverClassName = driverClassName;
-      }
-      catch (Exception e) {
-         throw new RuntimeException("Could not load class of driverClassName " + driverClassName, e);
-      }
-   }
+
+	public void setCustomClassloader (ClassLoader customClassloader) {
+		this.customClassloader = customClassloader;
+		this.useCustomClassloader = true;
+	}
+	
+	public void setUseCustomClassloader (ClassLoader customClassloader) {
+		this.useCustomClassloader = true;
+	}
+
+
+	public void setDriverClassName(String driverClassName) {
+		try {
+			if (useCustomClassloader) {
+				Class<?> driverClass = customClassloader.loadClass(driverClassName);
+				driverClass.newInstance();
+				this.driverClassName = driverClassName;
+			} else {
+				Class<?> driverClass = this.getClass().getClassLoader().loadClass(driverClassName);
+				driverClass.newInstance();
+				this.driverClassName = driverClassName;
+			}
+		} catch (Exception e) {
+			throw new RuntimeException("Could not load class of driverClassName " + driverClassName, e);
+		}
+	}
+
 
    /** {@inheritDoc} */
    @Override
