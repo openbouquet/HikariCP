@@ -1,4 +1,4 @@
-package com.squid.kraken.v4.core.database.impl;
+package com.squid.core.database.impl;
 
 import java.sql.Connection;
 import java.sql.Driver;

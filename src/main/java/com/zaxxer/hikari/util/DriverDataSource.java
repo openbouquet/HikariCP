@@ -30,7 +30,7 @@ import javax.sql.DataSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.squid.kraken.v4.core.database.impl.DriverShim;
+import com.squid.core.database.impl.DriverShim;
 
 public final class DriverDataSource implements DataSource
 {
