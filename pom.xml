@@ -16,10 +16,10 @@
    </organization>
 
    <scm>
-      <connection>scm:git:git@github.com:brettwooldridge/HikariCP.git</connection>
-      <developerConnection>scm:git:git@github.com:brettwooldridge/HikariCP.git</developerConnection>
-      <url>git@github.com:brettwooldridge/HikariCP.git</url>
-      <tag>HEAD</tag>
+      <connection>scm:git:git@github.com:lrabiet-squid/HikariCP.git</connection>
+      <developerConnection>scm:git:git@github.com:lrabiet-squid/HikariCP.git</developerConnection>
+      <url>git@github.com:lrabiet-squid/HikariCP.git</url>
+      <tag>HikariCP-SquidSolutions-2.4.1</tag>
    </scm>
 
    <licenses>
@@ -363,6 +363,7 @@
                   <!-- excludePackageNames>com.zaxxer.hikari.*</excludePackageNames -->
                   <attach>true</attach>
                   <maxmemory>1024m</maxmemory>
+		  <additionalparam>-Xdoclint:none</additionalparam>
                </configuration>
                <executions>
                   <execution>
