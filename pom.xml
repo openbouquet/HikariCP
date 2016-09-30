@@ -3,7 +3,7 @@
 
    <groupId>io.openbouquet</groupId>
    <artifactId>HikariCP</artifactId>
-   <version>2.5.1-RC2+SquidSolutions</version>
+   <version>2.5.1-RC1+SquidSolutions</version>
    <packaging>bundle</packaging>
 
    <name>HikariCP</name>
@@ -127,6 +127,16 @@
          <version>${hibernate.version}</version>
          <scope>provided</scope>
          <optional>true</optional>
+         <exclusions>
+            <exclusion>
+               <artifactId>jboss-logging</artifactId>
+               <groupId>org.jboss.logging</groupId>
+            </exclusion>
+            <exclusion>
+               <artifactId>jboss-logging-annotations</artifactId>
+               <groupId>org.jboss.logging</groupId>
+            </exclusion>
+         </exclusions>
       </dependency>
       <dependency>
          <groupId>io.dropwizard.metrics</groupId>
@@ -224,7 +234,7 @@
                </execution>
             </executions>
             <configuration>
-               <mainClass>com.zaxxer.hikari.proxy.JavassistProxyFactory</mainClass>
+               <mainClass>com.zaxxer.hikari.util.JavassistProxyFactory</mainClass>
             </configuration>
          </plugin>
 
@@ -245,7 +255,7 @@
                      <!-- Sets the name of the property containing the settings for JaCoCo runtime agent. -->
                      <propertyName>surefireArgLine</propertyName>
                      <excludes>
-                        <exclude>**/com/zaxxer/hikari/proxy/**</exclude>
+                        <exclude>**/com/zaxxer/hikari/proxy/HikariProxy*</exclude>
                         <exclude>**/com/zaxxer/hikari/metrics/**</exclude>
                      </excludes>
                   </configuration>
@@ -263,7 +273,7 @@
                      <!-- Sets the output directory for the code coverage report. -->
                      <outputDirectory>${project.reporting.outputDirectory}/jacoco</outputDirectory>
                      <excludes>
-                        <exclude>**/com/zaxxer/hikari/proxy/**</exclude>
+                        <exclude>**/com/zaxxer/hikari/proxy/HikariProxy*</exclude>
                         <exclude>**/com/zaxxer/hikari/metrics/**</exclude>
                      </excludes>
                   </configuration>
@@ -287,8 +297,7 @@
                   <Private-Package>com.zaxxer.hikari.*</Private-Package>
                   <_exportcontents>
                      com.zaxxer.hikari.pool,
-                     com.zaxxer.hikari.util,
-                     com.zaxxer.hikari.proxy
+                     com.zaxxer.hikari.util
                   </_exportcontents>
                   <Import-Package>
                      javax.management,
@@ -338,7 +347,7 @@
             <plugin>
                <groupId>org.apache.maven.plugins</groupId>
                <artifactId>maven-release-plugin</artifactId>
-               <version>2.5</version>
+               <version>${maven.release.version}</version>
                <configuration>
                   <autoVersionSubmodules>true</autoVersionSubmodules>
                   <tagNameFormat>HikariCP-@{project.version}</tagNameFormat>
@@ -354,6 +363,7 @@
                   <argLine>${surefireArgLine}</argLine>
                   <!-- Skips unit tests if the value of skip.unit.tests property is true -->
                   <skipTests>${skip.unit.tests}</skipTests>
+                  <reuseForks>false</reuseForks>
                </configuration>
             </plugin>
 
