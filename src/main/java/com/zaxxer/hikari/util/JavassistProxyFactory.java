@@ -68,7 +68,7 @@ public final class JavassistProxyFactory
          generateProxyClass(Connection.class, ProxyConnection.class.getName(), methodBody);
          generateProxyClass(Statement.class, ProxyStatement.class.getName(), methodBody);
          generateProxyClass(ResultSet.class, ProxyResultSet.class.getName(), methodBody);
-         
+
          // For these we have to cast the delegate
          methodBody = "{ try { return ((cast) delegate).method($$); } catch (SQLException e) { throw checkException(e); } }";
          generateProxyClass(PreparedStatement.class, ProxyPreparedStatement.class.getName(), methodBody);
@@ -104,6 +104,9 @@ public final class JavassistProxyFactory
          case "getProxyResultSet":
             method.setBody("{return new " + packageName + ".HikariProxyResultSet($$);}");
             break;
+         default:
+            // unhandled method
+            break;
          }
       }
 
@@ -119,7 +122,7 @@ public final class JavassistProxyFactory
 
       CtClass superCt = classPool.getCtClass(superClassName);
       CtClass targetCt = classPool.makeClass(newClassName, superCt);
-      targetCt.setModifiers(Modifier.FINAL);         
+      targetCt.setModifiers(Modifier.FINAL);
 
       System.out.println("Generating " + newClassName);
 
@@ -151,11 +154,6 @@ public final class JavassistProxyFactory
                continue;
             }
 
-            // Ignore default methods (only for Jre8 or later)
-            if (isDefaultMethod(intf, intfCt, intfMethod)) {
-               continue;
-            }
-
             // Track what methods we've added
             methods.add(signature);
 
@@ -166,7 +164,7 @@ public final class JavassistProxyFactory
 
             // If the super-Proxy has concrete methods (non-abstract), transform the call into a simple super.method() call
             CtMethod superMethod = superCt.getMethod(intfMethod.getName(), intfMethod.getSignature());
-            if ((superMethod.getModifiers() & Modifier.ABSTRACT) != Modifier.ABSTRACT) {
+            if ((superMethod.getModifiers() & Modifier.ABSTRACT) != Modifier.ABSTRACT && !isDefaultMethod(intf, intfCt, intfMethod)) {
                modifiedBody = modifiedBody.replace("((cast) ", "");
                modifiedBody = modifiedBody.replace("delegate", "super");
                modifiedBody = modifiedBody.replace("super)", "super");
@@ -224,7 +222,7 @@ public final class JavassistProxyFactory
 
    private static Set<Class<?>> getAllInterfaces(Class<?> clazz)
    {
-      Set<Class<?>> interfaces = new HashSet<Class<?>>();
+      Set<Class<?>> interfaces = new HashSet<>();
       for (Class<?> intf : Arrays.asList(clazz.getInterfaces())) {
          if (intf.getInterfaces().length > 0) {
             interfaces.addAll(getAllInterfaces(intf));

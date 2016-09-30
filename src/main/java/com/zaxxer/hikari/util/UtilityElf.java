@@ -16,14 +16,16 @@
 
 package com.zaxxer.hikari.util;
 
+import static java.util.concurrent.TimeUnit.SECONDS;
+
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.sql.Connection;
+import java.util.Locale;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.RejectedExecutionHandler;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
 
 /**
  *
@@ -31,6 +33,15 @@ import java.util.concurrent.TimeUnit;
  */
 public final class UtilityElf
 {
+   /**
+    *
+    * @return null if string is null or empty
+   */
+   public static String getNullIfEmpty(final String text)
+   {
+      return text == null ? null : text.trim().isEmpty() ? null : text.trim();
+   }
+
    /**
     * Sleep and transform an InterruptedException into a RuntimeException.
     *
@@ -64,18 +75,16 @@ public final class UtilityElf
 
       try {
          Class<?> loaded = UtilityElf.class.getClassLoader().loadClass(className);
+         if (args.length == 0) {
+            return clazz.cast(loaded.newInstance());
+         }
 
          Class<?>[] argClasses = new Class<?>[args.length];
          for (int i = 0; i < args.length; i++) {
             argClasses[i] = args[i].getClass();
          }
-
-         if (args.length > 0) {
-            Constructor<?> constructor = loaded.getConstructor(argClasses);
-            return clazz.cast(constructor.newInstance(args));
-         }
-
-         return clazz.cast(loaded.newInstance());
+         Constructor<?> constructor = loaded.getConstructor(argClasses);
+         return clazz.cast(constructor.newInstance(args));
       }
       catch (Exception e) {
          throw new RuntimeException(e);
@@ -98,7 +107,7 @@ public final class UtilityElf
       }
 
       LinkedBlockingQueue<Runnable> queue = new LinkedBlockingQueue<>(queueSize);
-      ThreadPoolExecutor executor = new ThreadPoolExecutor(1, 1, 5, TimeUnit.SECONDS, queue, threadFactory, policy);
+      ThreadPoolExecutor executor = new ThreadPoolExecutor(1, 1, 5, SECONDS, queue, threadFactory, policy);
       executor.allowCoreThreadTimeOut(true);
       return executor;
    }
@@ -117,7 +126,8 @@ public final class UtilityElf
    {
       if (transactionIsolationName != null) {
          try {
-            final String upperName = transactionIsolationName.toUpperCase();
+            // use the english locale to avoid the infamous turkish locale bug
+            final String upperName = transactionIsolationName.toUpperCase(Locale.ENGLISH);
             if (upperName.startsWith("TRANSACTION_")) {
                Field field = Connection.class.getField(upperName);
                return field.getInt(null);
@@ -140,5 +150,23 @@ public final class UtilityElf
       }
 
       return -1;
+   }
+
+   public static final class DefaultThreadFactory implements ThreadFactory {
+
+      private final String threadName;
+      private final boolean daemon;
+
+      public DefaultThreadFactory(String threadName, boolean daemon) {
+         this.threadName = threadName;
+         this.daemon = daemon;
+      }
+
+      @Override
+      public Thread newThread(Runnable r) {
+         Thread thread = new Thread(r, threadName);
+         thread.setDaemon(daemon);
+         return thread;
+      }
    }
 }

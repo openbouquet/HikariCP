@@ -1,3 +1,19 @@
+/*
+ * Copyright (C) 2013, 2014 Brett Wooldridge
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
 package com.zaxxer.hikari.pool;
 
 import java.io.ByteArrayOutputStream;
@@ -142,34 +158,6 @@ public class TestConnectionTimeoutRetry
    }
 
    @Test
-   public void testConnectionRetries4() throws SQLException
-   {
-      HikariConfig config = new HikariConfig();
-      config.setMinimumIdle(0);
-      config.setMaximumPoolSize(1);
-      config.setConnectionTimeout(1000);
-      config.setValidationTimeout(1000);
-      config.setConnectionTestQuery("VALUES 1");
-      config.setDataSourceClassName("com.zaxxer.hikari.mocks.StubDataSource");
-
-      try (HikariDataSource ds = new HikariDataSource(config)) {
-         StubDataSource stubDataSource = ds.unwrap(StubDataSource.class);
-         stubDataSource.setThrowException(new SQLException("Connection refused"));
-
-         long start = ClockSource.INSTANCE.currentTime();
-         try {
-            Connection connection = ds.getConnection();
-            connection.close();
-            Assert.fail("Should not have been able to get a connection.");
-         }
-         catch (SQLException e) {
-            long elapsed = ClockSource.INSTANCE.elapsedMillis(start);
-            Assert.assertTrue("Didn't wait long enough for timeout", (elapsed >= config.getConnectionTimeout()));
-         }
-      }
-   }
-
-   @Test
    public void testConnectionRetries5() throws SQLException
    {
       HikariConfig config = new HikariConfig();
@@ -240,6 +228,7 @@ public class TestConnectionTimeoutRetry
       try (HikariDataSource ds = new HikariDataSource(config)) {
          TestElf.setSlf4jLogLevel(HikariPool.class, Level.DEBUG);
 
+         HikariPool pool = TestElf.getPool(ds);
          Connection connection1 = ds.getConnection();
          Connection connection2 = ds.getConnection();
          Connection connection3 = ds.getConnection();
@@ -250,8 +239,8 @@ public class TestConnectionTimeoutRetry
 
          Thread.sleep(1300);
 
-         Assert.assertSame("Total connections not as expected", 10, TestElf.getPool(ds).getTotalConnections());
-         Assert.assertSame("Idle connections not as expected", 3, TestElf.getPool(ds).getIdleConnections());
+         Assert.assertSame("Total connections not as expected", 10, pool.getTotalConnections());
+         Assert.assertSame("Idle connections not as expected", 3, pool.getIdleConnections());
 
          connection1.close();
          connection2.close();
@@ -261,21 +250,20 @@ public class TestConnectionTimeoutRetry
          connection6.close();
          connection7.close();
 
-         Assert.assertSame("Totals connections not as expected", 10, TestElf.getPool(ds).getTotalConnections());
-         Assert.assertSame("Idle connections not as expected", 10, TestElf.getPool(ds).getIdleConnections());
+         Assert.assertSame("Total connections not as expected", 10, pool.getTotalConnections());
+         Assert.assertSame("Idle connections not as expected", 10, pool.getIdleConnections());
       }
    }
 
    @Before
    public void before()
    {
-      TestElf.setSlf4jTargetStream(HikariPool.class, System.err);
+      TestElf.setSlf4jLogLevel(HikariPool.class, Level.INFO);
    }
 
    @After
    public void after()
    {
       System.getProperties().remove("com.zaxxer.hikari.housekeeping.periodMs");
-      TestElf.setSlf4jLogLevel(HikariPool.class, Level.WARN);
    }
 }

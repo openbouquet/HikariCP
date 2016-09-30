@@ -18,12 +18,13 @@ package com.zaxxer.hikari.util;
 
 import java.lang.reflect.Method;
 import java.util.Arrays;
-import java.util.Enumeration;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
+import java.util.Locale;
 import java.util.Properties;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -39,29 +40,23 @@ public final class PropertyElf
 {
    private static final Logger LOGGER = LoggerFactory.getLogger(PropertyElf.class);
 
-   public static void setTargetFromProperties(Object target, Properties properties)
+   private static final Pattern GETTER_PATTERN = Pattern.compile("(get|is)[A-Z].+");
+
+   public static void setTargetFromProperties(final Object target, final Properties properties)
    {
       if (target == null || properties == null) {
          return;
       }
 
-      Enumeration<?> propertyNames = properties.propertyNames();
-      while (propertyNames.hasMoreElements()) {
-         Object key = propertyNames.nextElement();
-         String propName = key.toString();
-         Object propValue = properties.getProperty(propName);
-         if (propValue == null) {
-            propValue = properties.get(key);
-         }
-
-         if (target instanceof HikariConfig && propName.startsWith("dataSource.")) {
-            HikariConfig config = (HikariConfig) target;
-            config.addDataSourceProperty(propName.substring("dataSource.".length()), propValue);
+      List<Method> methods = Arrays.asList(target.getClass().getMethods());
+      properties.forEach((key, value) -> {
+         if (target instanceof HikariConfig && key.toString().startsWith("dataSource.")) {
+            ((HikariConfig) target).addDataSourceProperty(key.toString().substring("dataSource.".length()), value);
          }
          else {
-            setProperty(target, propName, propValue);
+            setProperty(target, key.toString(), value, methods);
          }
-      }
+      });
    }
 
    /**
@@ -70,12 +65,13 @@ public final class PropertyElf
     * @param targetClass the target object
     * @return a set of property names
     */
-   public static Set<String> getPropertyNames(Class<?> targetClass)
+   public static Set<String> getPropertyNames(final Class<?> targetClass)
    {
       HashSet<String> set = new HashSet<>();
+      Matcher matcher = GETTER_PATTERN.matcher("");
       for (Method method : targetClass.getMethods()) {
          String name = method.getName();
-         if (name.matches("(get|is)[A-Z].+") && method.getParameterTypes().length == 0) {
+         if (method.getParameterTypes().length == 0 && matcher.reset(name).matches()) {
             name = name.replaceFirst("(get|is)", "");
             try {
                if (targetClass.getMethod("set" + name, method.getReturnType()) != null) {
@@ -92,16 +88,17 @@ public final class PropertyElf
       return set;
    }
 
-   public static Object getProperty(String propName, Object target)
+   public static Object getProperty(final String propName, final Object target)
    {
       try {
-         String capitalized = "get" + propName.substring(0, 1).toUpperCase() + propName.substring(1);
+         // use the english locale to avoid the infamous turkish locale bug
+         String capitalized = "get" + propName.substring(0, 1).toUpperCase(Locale.ENGLISH) + propName.substring(1);
          Method method = target.getClass().getMethod(capitalized);
          return method.invoke(target);
       }
       catch (Exception e) {
          try {
-            String capitalized = "is" + propName.substring(0, 1).toUpperCase() + propName.substring(1);
+            String capitalized = "is" + propName.substring(0, 1).toUpperCase(Locale.ENGLISH) + propName.substring(1);
             Method method = target.getClass().getMethod(capitalized);
             return method.invoke(target);
          }
@@ -111,36 +108,22 @@ public final class PropertyElf
       }
    }
 
-   public static Properties copyProperties(Properties props)
+   public static Properties copyProperties(final Properties props)
    {
       Properties copy = new Properties();
-      for (Map.Entry<Object, Object> entry : props.entrySet()) {
-         copy.setProperty(entry.getKey().toString(), entry.getValue().toString());
-      }
+      props.forEach((key, value) -> copy.setProperty(key.toString(), value.toString()));
       return copy;
    }
 
-   private static void setProperty(Object target, String propName, Object propValue)
+   private static void setProperty(final Object target, final String propName, final Object propValue, final List<Method> methods)
    {
-      Method writeMethod = null;
-      String methodName = "set" + propName.substring(0, 1).toUpperCase() + propName.substring(1);
-
-      List<Method> methods = Arrays.asList(target.getClass().getMethods());
-      for (Method method : methods) {
-         if (method.getName().equals(methodName) && method.getParameterTypes().length == 1) {
-            writeMethod = method;
-            break;
-         }
-      }
+      // use the english locale to avoid the infamous turkish locale bug
+      String methodName = "set" + propName.substring(0, 1).toUpperCase(Locale.ENGLISH) + propName.substring(1);
+      Method writeMethod = methods.stream().filter(m -> m.getName().equals(methodName) && m.getParameterCount() == 1).findFirst().orElse(null);
 
       if (writeMethod == null) {
-         methodName = "set" + propName.toUpperCase();
-         for (Method method : methods) {
-            if (method.getName().equals(methodName) && method.getParameterTypes().length == 1) {
-               writeMethod = method;
-               break;
-            }
-         }            
+         String methodName2 = "set" + propName.toUpperCase(Locale.ENGLISH);
+         writeMethod = methods.stream().filter(m -> m.getName().equals(methodName2) && m.getParameterCount() == 1).findFirst().orElse(null);
       }
 
       if (writeMethod == null) {
@@ -167,7 +150,7 @@ public final class PropertyElf
          }
       }
       catch (Exception e) {
-         LOGGER.error("Exception setting property {} on target {}", propName, target.getClass(), e);
+         LOGGER.error("Failed to set property {} on target {}", propName, target.getClass(), e);
          throw new RuntimeException(e);
       }
    }

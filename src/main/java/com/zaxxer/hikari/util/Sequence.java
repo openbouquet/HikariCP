@@ -16,9 +16,6 @@
 
 package com.zaxxer.hikari.util;
 
-import java.lang.reflect.Constructor;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.LongAdder;
 
@@ -45,27 +42,17 @@ public interface Sequence
    /**
     * Factory class used to create a platform-specific ClockSource.
     */
-   public final class Factory
+   final class Factory
    {
       public static Sequence create()
       {
-         try {
-            if (Sequence.class.getClassLoader().loadClass("java.util.concurrent.atomic.LongAdder") != null && !Boolean.getBoolean("com.zaxxer.hikari.useAtomicLongSequence")) {
-               return new Java8Sequence();
-            }
+         if (!Boolean.getBoolean("com.zaxxer.hikari.useAtomicLongSequence")) {
+            return new Java8Sequence();
          }
-         catch (ClassNotFoundException e) {
-            try {
-               Class<?> longAdderClass = Sequence.class.getClassLoader().loadClass("com.codahale.metrics.LongAdder");
-               return new DropwizardSequence(longAdderClass);
-            }
-            catch (Exception e2) {
-            }
+         else {
+            return new Java7Sequence();
          }
-
-         return new Java7Sequence();
       }
-
    }
 
    final class Java7Sequence extends AtomicLong implements Sequence {
@@ -79,44 +66,6 @@ public interface Sequence
       @Override
       public long get() {
          return this.sum();
-      }
-   }
-
-   final class DropwizardSequence implements Sequence {
-      private final Object longAdder;
-      private final Method increment;
-      private final Method sum;
-
-      public DropwizardSequence(Class<?> longAdderClass) throws Exception {
-         Constructor<?> constructor = longAdderClass.getDeclaredConstructors()[0];
-         constructor.setAccessible(true);
-         increment = longAdderClass.getMethod("increment");
-         increment.setAccessible(true);
-         sum = longAdderClass.getMethod("sum");
-         sum.setAccessible(true);
-         longAdder = constructor.newInstance();
-      }
-
-      @Override
-      public void increment()
-      {
-         try {
-            increment.invoke(longAdder);
-         }
-         catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
-            throw new RuntimeException(e);
-         }
-      }
-
-      @Override
-      public long get()
-      {
-         try {
-            return (Long) sum.invoke(longAdder);
-         }
-         catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
-            throw new RuntimeException(e);
-         }
       }
    }
 }

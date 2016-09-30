@@ -20,7 +20,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Comparator;
 import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,20 +37,20 @@ import com.zaxxer.hikari.util.FastList;
 final class PoolEntry implements IConcurrentBagEntry
 {
    private static final Logger LOGGER = LoggerFactory.getLogger(PoolEntry.class);
+   private static final AtomicIntegerFieldUpdater<PoolEntry> stateUpdater;
 
    static final Comparator<PoolEntry> LASTACCESS_COMPARABLE;
-   static final PoolEntry MAXED_POOL_MARKER = new PoolEntry();
 
    Connection connection;
    long lastAccessed;
    long lastBorrowed;
+   private volatile int state;
    private volatile boolean evict;
 
    private volatile ScheduledFuture<?> endOfLife;
 
    private final FastList<Statement> openStatements;
    private final HikariPool hikariPool;
-   private final AtomicInteger state;
 
    private final boolean isReadOnly;
    private final boolean isAutoCommit;
@@ -63,15 +63,8 @@ final class PoolEntry implements IConcurrentBagEntry
             return Long.compare(entryOne.lastAccessed, entryTwo.lastAccessed);
          }
       };
-   }
 
-   private PoolEntry()
-   {
-      this.state = null;
-      this.openStatements = null;
-      this.hikariPool = null;
-      this.isReadOnly = false;
-      this.isAutoCommit = false;
+      stateUpdater = AtomicIntegerFieldUpdater.newUpdater(PoolEntry.class, "state");
    }
 
    PoolEntry(final Connection connection, final PoolBase pool, final boolean isReadOnly, final boolean isAutoCommit)
@@ -80,7 +73,6 @@ final class PoolEntry implements IConcurrentBagEntry
       this.hikariPool = (HikariPool) pool;
       this.isReadOnly = isReadOnly;
       this.isAutoCommit = isAutoCommit;
-      this.state = new AtomicInteger();
       this.lastAccessed = ClockSource.INSTANCE.currentTime();
       this.openStatements = new FastList<>(Statement.class, 16);
    }
@@ -92,8 +84,10 @@ final class PoolEntry implements IConcurrentBagEntry
     */
    void recycle(final long lastAccessed)
    {
-      this.lastAccessed = lastAccessed;
-      hikariPool.releaseConnection(this);
+      if (connection != null) {
+         this.lastAccessed = lastAccessed;
+         hikariPool.recycle(this);
+      }
    }
 
    /**
@@ -146,8 +140,7 @@ final class PoolEntry implements IConcurrentBagEntry
    {
       final long now = ClockSource.INSTANCE.currentTime();
       return connection
-         + ", borrowed " + ClockSource.INSTANCE.elapsedMillis(lastBorrowed, now) + "ms ago, "
-         + ", accessed " + ClockSource.INSTANCE.elapsedMillis(lastAccessed, now) + "ms ago, "
+         + ", accessed " + ClockSource.INSTANCE.elapsedDisplayString(lastAccessed, now) + " ago, "
          + stateToString();
    }
 
@@ -159,36 +152,39 @@ final class PoolEntry implements IConcurrentBagEntry
    @Override
    public int getState()
    {
-      return state.get();
+      return stateUpdater.get(this);
    }
 
    /** {@inheritDoc} */
    @Override
    public boolean compareAndSet(int expect, int update)
    {
-      return state.compareAndSet(expect, update);
+      return stateUpdater.compareAndSet(this, expect, update);
    }
 
    /** {@inheritDoc} */
    @Override
-   public void lazySet(int update)
+   public void setState(int update)
    {
-      state.lazySet(update);
+      stateUpdater.set(this, update);
    }
 
-   void close()
+   Connection close()
    {
-      if (endOfLife != null && !endOfLife.isDone() && !endOfLife.cancel(false)) {
+      ScheduledFuture<?> eol = endOfLife;
+      if (eol != null && !eol.isDone() && !eol.cancel(false)) {
          LOGGER.warn("{} - maxLifeTime expiration task cancellation unexpectedly returned false for connection {}", getPoolName(), connection);
       }
 
-      endOfLife = null;
+      Connection con = connection;
       connection = null;
+      endOfLife = null;
+      return con;
    }
 
    private String stateToString()
    {
-      switch (state.get()) {
+      switch (state) {
       case STATE_IN_USE:
          return "IN_USE";
       case STATE_NOT_IN_USE:

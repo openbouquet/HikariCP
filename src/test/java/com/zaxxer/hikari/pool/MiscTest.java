@@ -47,8 +47,7 @@ public class MiscTest
       config.setDataSourceClassName("com.zaxxer.hikari.mocks.StubDataSource");
       TestElf.setConfigUnitTest(true);
 
-      final HikariDataSource ds = new HikariDataSource(config);
-      try {
+      try (HikariDataSource ds = new HikariDataSource(config)) {
          PrintWriter writer = new PrintWriter(System.out);
          ds.setLogWriter(writer);
          Assert.assertSame(writer, ds.getLogWriter());
@@ -57,7 +56,6 @@ public class MiscTest
       finally
       {
          TestElf.setConfigUnitTest(false);
-         ds.close();
       }
    }
 
@@ -89,37 +87,37 @@ public class MiscTest
    public void testLeakDetection() throws Exception
    {
       ByteArrayOutputStream baos = new ByteArrayOutputStream();
-      PrintStream ps = new PrintStream(baos, true);
-      TestElf.setSlf4jTargetStream(Class.forName("com.zaxxer.hikari.pool.ProxyLeakTask"), ps);
-
-      HikariConfig config = new HikariConfig();
-      config.setMinimumIdle(0);
-      config.setMaximumPoolSize(4);
-      config.setPoolName("test");
-      config.setThreadFactory(Executors.defaultThreadFactory());
-      config.setMetricRegistry(null);
-      config.setLeakDetectionThreshold(TimeUnit.SECONDS.toMillis(1));
-      config.setDataSourceClassName("com.zaxxer.hikari.mocks.StubDataSource");
-      TestElf.setConfigUnitTest(true);
-
-      final HikariDataSource ds = new HikariDataSource(config);
-      try {
-         TestElf.setSlf4jLogLevel(HikariPool.class, Level.DEBUG);
-         TestElf.getPool(ds).logPoolState();
-
-         Connection connection = ds.getConnection();
-         UtilityElf.quietlySleep(TimeUnit.SECONDS.toMillis(4));
-         connection.close();
-         UtilityElf.quietlySleep(TimeUnit.SECONDS.toMillis(1));
-         ps.close();
-         String s = new String(baos.toByteArray());
-         Assert.assertNotNull("Exception string was null", s);
-         Assert.assertTrue("Expected exception to contain 'Connection leak detection' but contains *" + s + "*", s.contains("Connection leak detection"));
-      }
-      finally
-      {
-         TestElf.setConfigUnitTest(false);
-         ds.close();
+      try (PrintStream ps = new PrintStream(baos, true)) {
+         TestElf.setSlf4jTargetStream(Class.forName("com.zaxxer.hikari.pool.ProxyLeakTask"), ps);
+         TestElf.setConfigUnitTest(true);
+   
+         HikariConfig config = new HikariConfig();
+         config.setMinimumIdle(0);
+         config.setMaximumPoolSize(4);
+         config.setPoolName("test");
+         config.setThreadFactory(Executors.defaultThreadFactory());
+         config.setMetricRegistry(null);
+         config.setLeakDetectionThreshold(TimeUnit.SECONDS.toMillis(1));
+         config.setDataSourceClassName("com.zaxxer.hikari.mocks.StubDataSource");
+   
+         try (HikariDataSource ds = new HikariDataSource(config)) {
+            TestElf.setSlf4jLogLevel(HikariPool.class, Level.DEBUG);
+            TestElf.getPool(ds).logPoolState();
+   
+            try (Connection connection = ds.getConnection()) {
+               UtilityElf.quietlySleep(TimeUnit.SECONDS.toMillis(4));
+               connection.close();
+               UtilityElf.quietlySleep(TimeUnit.SECONDS.toMillis(1));
+               ps.close();
+               String s = new String(baos.toByteArray());
+               Assert.assertNotNull("Exception string was null", s);
+               Assert.assertTrue("Expected exception to contain 'Connection leak detection' but contains *" + s + "*", s.contains("Connection leak detection"));
+            }
+         }
+         finally
+         {
+            TestElf.setConfigUnitTest(false);
+         }
       }
    }
 }

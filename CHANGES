@@ -1,5 +1,119 @@
 HikariCP Changes
 
+Changes in 2.5.1
+
+ * issue 719 only reset lastConnectionFailure after a successful dataSource.getConnection()
+   call.
+
+ * issue 716 do not scan deeper than 10 nested SQLExceptions, it's typically a trap ...
+   a chain that never terminates.
+
+ * issue 714 fix possible issue with cross-thread visibility.  Change pool entry state from
+   AtomicInteger w/lazySet() to a volatile int with use of AtomicIntegerFieldUpdater.
+
+Changes in 2.5.0
+
+ * Release 2.5.0 marks the start of a Java 8 HikariCP artifact.  The Java 7 artifact is
+   now called "HikariCP-java7".
+
+ * HikariCP 2.5.0 and HikariCP-java7 2.4.8 have identical functionality.
+   
+Changes in 2.4.8
+
+ * Release 2.4.8 marks the start of a Java 7 HikariCP artifact, HikariCP-java7, representing
+   support for Java 7 entering maintenance mode.
+
+ * Added Connection.commit() call to the fail-fast initialization for databases that
+   automatically start a new Connection in a transaction and throw an exception on close
+   if it is not committed.
+ 
+ * feature 694: report if a previously reported leaked connection is returned to the pool
+
+ * issue 689: log a warning if default transaction isolation level cannot be detected.
+   This can occur with pseudo-database drivers such as the one for JSonar
+
+ * issue 674: fix regression caused by pull request #450 (overzealous optimisation)
+
+Changes in 2.4.7
+
+ * Miscellaneous stability improvements.
+
+ * Removed Oracle SQL state 61000, added specific error code (2399) to evict connections
+   when it is encountered.
+
+ * issue 664: do not recycle PoolEntry objects that have closed their held connection.
+
+ * issue 641, 643: reflection used method String.toUpperCase() without a Locale, which causes
+   problems in some locales such as Turkish.
+
+ * pull 632: added support for Prometheus metrics tracker.
+ 
+ * issue 650: detect Amazon Redshift connection refused error codes.
+
+Changes in 2.4.6
+
+ * Added Oracle SQL error code 61000 (exceeded maximum connect time) to evict connections
+   when it is encountered.
+
+ * issue 621: fix NPE in shutdown if invoked during initialization.
+
+ * issue 606, 610: housekeeper thread was running before all class members were
+   initialized, causing an unrecoverable exception and disabling idle connection
+   retirement (maximumLifetime still applied).
+
+Changes in 2.4.5
+
+ * issue 596: fix bug that occurs when minimumIdle is set to 0, but maximumPoolSize is
+   not explicitly set.
+ 
+ * issue 594: fix incompatibility with various libraries caused by storing a non-String
+   object in System properties.
+
+ * issue 593: improve logging when network timeout is not supported by the driver
+
+ * issue 591: improve thread-safety of Statement proxies
+ 
+Changes in 2.4.4
+
+ * Generate unique sequential pool names, even across container classloaders to avoid
+   JMX name collisions when registering pools.
+
+ * Improve pool stability when running on computers using power-saving or sleep modes
+   where wake-up previously caused pool to grow to maximum size.
+
+ * Improve pool stability under severe thread-starvation conditions.  Previous code
+   could interpret prolonged starvation (exceeding one minute) as non-contiguous clock
+   advancement, and reacted by soft-evicting connections (unnecessarily).
+
+ * Added connection timeout rate to Dropwizard metrics (ConnectionTimeoutRate).
+
+ * issue 563: Do not start the house-keeping thread until after pool initialisation
+   has succeeded.
+
+ * issue 559: Ensure the pool refill after house-keeping does not enqueue more add
+   connection requests if there are already minimumIdle requests pending.
+
+ * issue 555: include support for Java 8 interface 'default' methods during proxy
+   generation.
+
+ * issue 547: decreased allowable minimum connectionTimeout and validationTimeout to
+   250ms.
+
+ * issue 495: implemented iterator() method on custom FastList to support Tomcat
+   memory leak detection.
+
+Changes in 2.3.13
+
+ * issue 512: reduce the number of calls made to Connection.getAutoCommit().
+
+Changes in 2.4.3
+
+ * Improve pool shutdown behavior.  Stop active connection acquisition once the
+   shutdown sequence has initiated.
+
+ * Improved detection and reporting of ambiguous pool configuration, when both the
+   connection URL and DataSource class names are specified.
+
 Changes in 2.4.2
 
  * Improve accuracy of timeouts for getConnection() calls by accounting for possibly
@@ -8,6 +122,13 @@ Changes in 2.4.2
  * Improve adherence to minimumIdle goal by closing idle connections starting from
    longest idle time to shortest.  Additionally, stop when minimumIdle is reached even
    if connections exceeding idleTimeout remain (but are still within maxLifetime).
+
+ * Introduce larger variance into maxLifetime to avoid mass connection closing and
+   subsequent new connection creation load on the database.  Connections now have a
+   maximum lifetime between 97.5-100% of configured maxLifetime.  In the case of the
+   default 30 minute lifetime, this generates actual lifetimes with a maximum deviation
+   of 45 seconds.  Currently, no attempt is made to further avoid clustering that may
+   occur due to randomness.
 
  * Ongoing com.zaxxer.hikari.metrics refactors. This is not considered public API until
    such time as we announce it. Caveat lector.

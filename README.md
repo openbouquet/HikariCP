@@ -1,18 +1,31 @@
-<h1>![](https://github.com/brettwooldridge/HikariCP/wiki/Hikari.png) HikariCP<sup><sup>&nbsp;It's Faster.</sup></sup><sub><sub><sup>Hi·ka·ri [hi·ka·'lē] &#40;*Origin: Japanese*): light; ray.</sup></sub></sub></h1><br>[![Build Status](https://travis-ci.org/brettwooldridge/HikariCP.svg?branch=master)](https://travis-ci.org/brettwooldridge/HikariCP)<img src='https://raw.github.com/wiki/brettwooldridge/HikariCP/space60x1.gif' width='3px'>[![Issue Stats](http://issuestats.com/github/brettwooldridge/HikariCP/badge/issue?style=flat&concise=true)](http://issuestats.com/github/brettwooldridge/HikariCP)<img src='https://raw.github.com/wiki/brettwooldridge/HikariCP/space60x1.gif' width='3px'>[![Issue Stats](http://issuestats.com/github/brettwooldridge/HikariCP/badge/pr?style=flat&concise=true)](http://issuestats.com/github/brettwooldridge/HikariCP)<img src='https://raw.github.com/wiki/brettwooldridge/HikariCP/space60x1.gif' width='3px'>[![Coverage Status](https://coveralls.io/repos/brettwooldridge/HikariCP/badge.svg?branch=master)](https://coveralls.io/r/brettwooldridge/HikariCP?branch=master)<img src='https://raw.github.com/wiki/brettwooldridge/HikariCP/space60x1.gif' width='3px'>[![Dependency Status](https://www.versioneye.com/user/projects/551ce51c3661f1bee50004e0/badge.svg?style=flat)](https://www.versioneye.com/user/projects/551ce51c3661f1bee50004e0)
+<h1>![](https://github.com/brettwooldridge/HikariCP/wiki/Hikari.png) HikariCP<sup><sup>&nbsp;It's Faster.</sup></sup><sub><sub><sup>Hi·ka·ri [hi·ka·'lē] &#40;*Origin: Japanese*): light; ray.</sup></sub></sub></h1><br>
+[![][Build Status img]][Build Status]
+[![][Coverage Status img]][Coverage Status]
+[![][Dependency Status img]][Dependency Status]
+[![][license img]][license]
+[![][Maven Central img]][Maven Central]
 
 Fast, simple, reliable.  HikariCP is a "zero-overhead" production ready JDBC connection pool.  At roughly 90Kb, the library is very light.  Read about [how we do it here](https://github.com/brettwooldridge/HikariCP/wiki/Down-the-Rabbit-Hole).
 
 &nbsp;&nbsp;&nbsp;<sup>**"Simplicity is prerequisite for reliability."**<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- *Edsger Djikstra*</sup>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- *Edsger Dijkstra*</sup>
 
 ----------------------------------------------------
 
-_Java 7 and Java 8 maven artifact:_
+_Java 8 maven artifact:_
 ```xml
     <dependency>
         <groupId>com.zaxxer</groupId>
         <artifactId>HikariCP</artifactId>
-        <version>2.4.1</version>
+        <version>2.5.0</version>
+    </dependency>
+```
+_Java 7 maven artifact (*maintenance mode*):_
+```xml
+    <dependency>
+        <groupId>com.zaxxer</groupId>
+        <artifactId>HikariCP-java7</artifactId>
+        <version>2.4.8</version>
     </dependency>
 ```
 _Java 6 maven artifact (*maintenance mode*):_
@@ -20,7 +33,7 @@ _Java 6 maven artifact (*maintenance mode*):_
     <dependency>
         <groupId>com.zaxxer</groupId>
         <artifactId>HikariCP-java6</artifactId>
-        <version>2.3.12</version>
+        <version>2.3.13</version>
     </dependency>
 ```
 Or [download from here](http://search.maven.org/#search%7Cga%7C1%7Ccom.zaxxer.hikaricp).
@@ -125,12 +138,13 @@ It is a boolean value.
 &#8986;``connectionTimeout``<br/>
 This property controls the maximum number of milliseconds that a client (that's you) will wait
 for a connection from the pool.  If this time is exceeded without a connection becoming
-available, a SQLException will be thrown.  1000ms is the minimum value.
+available, a SQLException will be thrown.  Lowest acceptable connection timeout is 250 ms.
 *Default: 30000 (30 seconds)*
 
 &#8986;``idleTimeout``<br/>
 This property controls the maximum amount of time that a connection is allowed to sit idle in the
-pool.  Whether a connection is retired as idle or not is subject to a maximum variation of +30
+pool.  **This setting only applies when ``minimumIdle`` is defined to be less than ``maximumPoolSize``.**
+Whether a connection is retired as idle or not is subject to a maximum variation of +30
 seconds, and average variation of +15 seconds.  A connection will never be retired as idle *before*
 this timeout.  A value of 0 means that idle connections are never removed from the pool.
 *Default: 600000 (10 minutes)*
@@ -247,14 +261,13 @@ class such as ``TRANSACTION_READ_COMMITTED``, ``TRANSACTION_REPEATABLE_READ``, e
 
 &#8986;``validationTimeout``<br/>
 This property controls the maximum amount of time that a connection will be tested for aliveness.
-This value must be less than the ``connectionTimeout``.  The lowest accepted validation timeout is
-1000ms (1 second).
+This value must be less than the ``connectionTimeout``.  Lowest acceptable validation timeout is 250 ms.
 *Default: 5000*
 
 &#8986;``leakDetectionThreshold``<br/>
 This property controls the amount of time that a connection can be out of the pool before a
 message is logged indicating a possible connection leak.  A value of 0 means leak detection
-is disabled.  Lowest acceptable value for enabling leak detection is 2000 (2 secs).
+is disabled.  Lowest acceptable value for enabling leak detection is 2000 (2 seconds).
 *Default: 0*
 
 &#10145;``dataSource``<br/>
@@ -276,23 +289,34 @@ where threads can only be created through a ``ThreadFactory`` provided by the ap
 
 HikariCP has plenty of "knobs" to turn as you can see above, but comparatively less than some other pools.
 This is a design philosophy.  The HikariCP design aesthetic is Minimalism.  In keeping with the
-*simple is better* or *less is more* design philosophy, some knobs are intentionally left out.  Here are two,
-and the rationale.
+*simple is better* or *less is more* design philosophy, some configuration axis are intentionally left out.
 
 #### Statement Cache
 
-Most major database JDBC drivers already have a Statement cache that can be configured
-([MySQL](https://github.com/brettwooldridge/HikariCP/wiki/MySQL-Configuration), PostgreSQL, Derby, etc).
-A statement cache in the pool would add unneeded weight and no additional functionality.  It is simply
-unnecessary with modern database drivers to implement a cache at the pool level.
+Many connection pools, including Apache DBCP, Vibur, CP30 and others offer ``PreparedStatement`` caching.
+HikariCP does not.  Why?
+
+At the connection pool layer ``PreparedStatements`` can only be cached *per connection*.  If your application
+has 250 commonly executed queries and a pool of 20 connections you are asking your database to hold on to
+5000 query execution plans -- and similarly the pool must cache this many ``PreparedStatements`` and their
+related graph of objects.
+
+Most major database JDBC drivers already have a Statement cache that can be configured, including PostgreSQL,
+Oracle, Derby, MySQL, DB2, and many others.  JDBC drivers are in a unique position to exploit database specific
+features, and nearly all of the caching implementations are capable of sharing execution plans *across connections*.
+This means that instead of 5000 statements in memory and associated execution plans, your 250 commonly executed
+queries result in exactly 250 execution plans in the database.  Clever implementations do not even retain
+``PreparedStatement`` objects in memory at the driver-level but instead merely attach new instances to existing plan IDs.
+
+Using a statement cache at the pooling layer is an [anti-pattern](https://en.wikipedia.org/wiki/Anti-pattern),
+and will negatively impact your application performance compared to driver-provided caches.
 
 #### Log Statement Text / Slow Query Logging
 
 Like Statement caching, most major database vendors support statement logging through
 properties of their own driver.  This includes Oracle, MySQL, Derby, MSSQL, and others.  Some
-even support slow query logging. We consider this a "development-time" feature.  For those few
-databases that do not support it, [jdbcdslog-exp](https://code.google.com/p/jdbcdslog-exp/) is
-a good option.  Great stuff during development and pre-Production.
+even support slow query logging.  For those few databases that do not support it, [log4jdbc](https://github.com/arthurblake/log4jdbc) or [jdbcdslog-exp](https://code.google.com/p/jdbcdslog-exp/) are
+good options.
 
 ----------------------------------------------------
 
@@ -320,7 +344,8 @@ ds.setPassword("51mp50n");
 ```
 or property file based:
 ```java
-HikariConfig config = new HikariConfig("some/path/hikari.properties");
+// Examines both filesystem and classpath for .properties file
+HikariConfig config = new HikariConfig("/some/path/hikari.properties");
 HikariDataSource ds = new HikariDataSource(config);
 ```
 Example property file:
@@ -361,15 +386,17 @@ Here is a list of JDBC *DataSource* classes for popular databases:
 | Firebird         | Jaybird      | org.firebirdsql.pool.FBSimpleDataSource |
 | H2               | H2           | org.h2.jdbcx.JdbcDataSource |
 | HSQLDB           | HSQLDB       | org.hsqldb.jdbc.JDBCDataSource |
-| IBM AS400        | IBM          | com.ibm.as400.access.AS400JDBCDriver |
-| IBM DB2          | DB2          | com.ibm.db2.jcc.DB2SimpleDataSource |
-| MariaDB & MySQL  | MariaDB      | org.mariadb.jdbc.MySQLDataSource |
-| MySQL            | Connector/J  | com.mysql.jdbc.jdbc2.optional.MysqlDataSource |
+| IBM DB2          | IBM JCC      | com.ibm.db2.jcc.DB2SimpleDataSource |
+| IBM Informix     | IBM Informix | com.informix.jdbcx.IfxDataSource |
 | MS SQL Server    | Microsoft    | com.microsoft.sqlserver.jdbc.SQLServerDataSource |
+| MySQL            | Connector/J  | com.mysql.jdbc.jdbc2.optional.MysqlDataSource |
+| MySQL/MariaDB    | MariaDB      | org.mariadb.jdbc.MySQLDataSource |
 | Oracle           | Oracle       | oracle.jdbc.pool.OracleDataSource |
+| OrientDB         | OrientDB     | com.orientechnologies.orient.jdbc.OrientDataSource |
 | PostgreSQL       | pgjdbc-ng    | com.impossibl.postgres.jdbc.PGDataSource |
 | PostgreSQL       | PostgreSQL   | org.postgresql.ds.PGSimpleDataSource |
 | SAP MaxDB        | SAP          | com.sap.dbtech.jdbc.DriverSapDB |
+| SQLite           | xerial       | org.sqlite.SQLiteDataSource |
 | SyBase           | jConnect     | com.sybase.jdbc4.jdbc.SybDataSource |
 
 ### Play Framework Plugin
@@ -400,7 +427,7 @@ Don't forget the [Wiki](https://github.com/brettwooldridge/HikariCP/wiki) for ad
 
 ### Requirements
 
- &#8658; Java 7 and above<br/>
+ &#8658; Java 8+ (Java 6/7 artifacts are in maintenance mode)<br/>
  &#8658; slf4j library<br/>
 
 ### Sponsors
@@ -411,3 +438,18 @@ YourKit supports open source projects with its full-featured Java Profiler.  Cli
 ### Contributions
 
 Please perform changes and submit pull requests from the ``dev`` branch instead of ``master``.  Please set your editor to use spaces instead of tabs, and adhere to the apparent style of the code you are editing.  The ``dev`` branch is always more "current" than the ``master`` if you are looking to live life on the edge.
+
+[Build Status]:https://travis-ci.org/brettwooldridge/HikariCP
+[Build Status img]:https://travis-ci.org/brettwooldridge/HikariCP.svg?branch=dev
+
+[Coverage Status]:https://coveralls.io/r/brettwooldridge/HikariCP?branch=dev
+[Coverage Status img]:https://coveralls.io/repos/brettwooldridge/HikariCP/badge.svg?branch=dev
+
+[Dependency Status]:https://www.versioneye.com/user/projects/551ce51c3661f1bee50004e0
+[Dependency Status img]:https://www.versioneye.com/user/projects/551ce51c3661f1bee50004e0/badge.svg?style=flat
+
+[license]:LICENSE
+[license img]:https://img.shields.io/badge/License-Apache%202-blue.svg
+
+[Maven Central]:https://maven-badges.herokuapp.com/maven-central/com.zaxxer/HikariCP
+[Maven Central img]:https://maven-badges.herokuapp.com/maven-central/com.zaxxer/HikariCP/badge.svg

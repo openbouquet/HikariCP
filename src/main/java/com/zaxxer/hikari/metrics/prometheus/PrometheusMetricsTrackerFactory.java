@@ -12,25 +12,24 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+*/
+
+package com.zaxxer.hikari.metrics.prometheus;
+
+import com.zaxxer.hikari.metrics.MetricsTracker;
+import com.zaxxer.hikari.metrics.MetricsTrackerFactory;
+import com.zaxxer.hikari.metrics.PoolStats;
+
+/**
+ * <pre>{@code
+ * HikariConfig config = new HikariConfig();
+ * config.setMetricsTrackerFactory(new PrometheusMetricsTrackerFactory());
+ * }</pre>
  */
-package com.zaxxer.hikari.util;
-
-import java.util.concurrent.ThreadFactory;
-
-public class DefaultThreadFactory implements ThreadFactory {
-
-   private final String threadName;
-   private final boolean daemon;
-
-   public DefaultThreadFactory(String threadName, boolean daemon) {
-      this.threadName = threadName;
-      this.daemon = daemon;
-   }
-
+public class PrometheusMetricsTrackerFactory implements MetricsTrackerFactory {
    @Override
-   public Thread newThread(Runnable r) {
-      Thread thread = new Thread(r, threadName);
-      thread.setDaemon(daemon);
-      return thread;
+   public MetricsTracker create(String poolName, PoolStats poolStats) {
+      new HikariCPCollector(poolName, poolStats).register();
+      return new PrometheusMetricsTracker(poolName);
    }
 }
