@@ -74,7 +74,7 @@ public class OSGiBundleTest
         {
             if(bundle != null)
             {
-                if(bundle.getSymbolicName().equals("com.zaxxer.HikariCP"))
+                if(bundle.getSymbolicName().equals("io.openbouquet.HikariCP"))
                 {
                     bundleFound = true;
                     if(bundle.getState() == Bundle.ACTIVE)
