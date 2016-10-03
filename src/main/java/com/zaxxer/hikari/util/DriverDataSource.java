@@ -30,8 +30,6 @@ import javax.sql.DataSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.squid.core.database.impl.DriverShim;
-
 public final class DriverDataSource implements DataSource
 {
    private static final Logger LOGGER = LoggerFactory.getLogger(DriverDataSource.class);
@@ -60,12 +58,7 @@ public final class DriverDataSource implements DataSource
          Enumeration<Driver> drivers = DriverManager.getDrivers();
          while (drivers.hasMoreElements()) {
             Driver d = drivers.nextElement();
-            if(d instanceof DriverShim){
-            	if (((DriverShim) d).getName().equals(driverClassName)) {
-                    driver = d;
-                    break;
-                 }
-            }else if (d.getClass().getName().equals(driverClassName)) {
+            if (d.getClass().getName().equals(driverClassName)) {
                driver = d;
                break;
             }
