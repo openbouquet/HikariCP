@@ -71,7 +71,7 @@ public final class DriverDataSource implements DataSource
                driver = (Driver) driverClass.newInstance();
             }
             catch (Exception e) {
-               LOGGER.warn("Failed to create instance of driver class {}, trying jdbcUrl resolution", driverClassName, e);
+               LOGGER.warn("Failed to create instance of driver class {}, trying jdbcUrl resolution", driverClassName);
             }
          }
       }
